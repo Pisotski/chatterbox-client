@@ -1,98 +1,121 @@
-// $(function() {
-//   // $('body').on('click', function() {
-//   //   app.fetch();
-//   // });
-//   // $('#post').on('click', function() {
-//   //   app.send();
-//   // });
-// });
+
+$(document).ready(function() {
+
+  var ourMessage;
+  $('#post').on('click', function() {
+    ourMessage = $('#field').val();
+    ourMessage = app.convertMessage(ourMessage, app.username);
+    app.send(ourMessage);
+    $('#field').val('');
+  });
+  
+  $('#roomSelect').change( function() {
+    $( "select option:selected" ).each(function() {
+      app.selectedRoom = $( this ).attr('id');
+      app.lastDate = null;
+      app.clearContainer( '#chats' );
+    });
+  });
+
+  $('#clear').on('click', function() {
+    app.clearContainer('#chats');
+  });
+    
+  setInterval(app.fetch, 500);
+});
 
 var app = {
+  init: function() {},
   server: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages',
   username: window.location.search.substr(10),
-  roomname: 'lobby',
-  lastMessageId: 0
-
+  roomnames: [],
+  selectedRoom: 'default',
+  messages: [],
+  lastDate: null
 };
-// var messageData = [];
-app.init = function() {
-  // get username
-  this.username = window.location.search.substr(10);
-  //cache jQuery selectors
-  app.$message = $('#message');
-  app.$chats = $('#chats');
-  app.$roomSelect = $('#roomSelect');
-  app.$send = $('#send');
-};
-  
-// app.send = function(message) {
-//   $.ajax({
-//     // This is the url you should use to communicate with the parse API server.
-//     url: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages',
-//     type: 'POST',
-//     data: JSON.stringify(message),
-//     contentType: 'application/json',
-//     success: function (data) {
-//       console.log('chatterbox: Message sent');
-//     },
-//     error: function (data) {
-//       // See: https://developer.mozilla.org/en-US/docs/Web/API/console.error
-//       console.error('chatterbox: Failed to send message', data);
-//     }
-//   });
-// };
-  
-app.fetch = function() {
-  // $.ajax({
-  //   url: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages',
-  //   type: 'GET',
-  //   // data: JSON.stringify(message),
-  //   contentType: 'application/json',
-  //   success: function (data) {
-  //     $('#chats').append('<div>' + data.results[0].username + ':' + '</div>', '<div>' + data.results[0].text + '</div>');
-  //     console.log(data);    
-  //   },
-  //   error: function (data) {
-  //     // See: https://developer.mozilla.org/en-US/docs/Web/API/console.error
-  //     console.error('chatterbox: Failed to send message', data);
-  //   }
-  // });
+ 
+app.send = function(message) {
   $.ajax({
-    url: app.server,
-    type: 'GET',
-    success: function(data) {
-      // console.log(data);
-      // if(!data.results || !data.result.length) {
-      //   return;
-      // }
-      // //Store messages updaing the DOM if we have a new message
-      // this.messages = data.results;
-      // var mostRecentMessage = this.messages[this.messages.length - 1];
-      // if (mostRecentMessage.objectId !== this.lastMessageId) {
-      //   this.$chats.html('');
-
-      //   for (var i = 0; i < this.messages.length; i++) {
-
-      //     var $chat = $('<div class="chat"/>');
-      //     var $username = $('<span class="username">' + this.messages[i].text + '</span>');
-      //     $username.appendTo($chat);
-
-      //     var $message = $('<br><span>' + this.messages[i].text + '<span>')
-      //     $message.appendTo($chat);
-
-      //     this.$chats.append($chat);
-      //  }
-      
+    // This is the url you should use to communicate with the parse API server.
+    url: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages',
+    type: 'POST',
+    data: JSON.stringify(message),
+    contentType: 'application/json',
+    success: function (data) {
+      console.log('chatterbox: Message sent');
     },
+    error: function (data) {
+      // See: https://developer.mozilla.org/en-US/docs/Web/API/console.error
+      console.error('chatterbox: Failed to send message', data);
+    }
+  });
+};
 
-    error: function(error) {
-      console.error(error);
+app.fetch = function() {
+  $.ajax({
+    url: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages',
+    type: 'GET',
+    data: {order: '-createdAt'},
+    contentType: 'application/json',
+    success: function (data) {
+      app.allRooms(data);
+      app.renderMessage(app.filterMessagesByRoomName(data));
+    },
+    error: function (data) {
+      // See: https://developer.mozilla.org/en-US/docs/Web/API/console.error
+      console.error('chatterbox: Failed to send message', data);
     }
   });
 };  
+ 
+app.renderMessage = function(messages) {
   
-// app.server = 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages';
-  
-app.renderMessage = function() {
-     
+  if( !app.lastDate ) {
+      app.lastDate = new Date(messages[0].createdAt);
+    messages.forEach(function(msg){
+      $("#chats").append('<div class="chat">' + msg.username + ': ' + msg.text + '</div>');
+  });  
+  } else {
+    var currDate = new Date(messages[0].createdAt);
+    if(currDate > app.lastDate) {
+      $("#chats").prepend('<div class="chat">' + msg.username + ': ' + msg.text + '</div>');
+      app.lastDate = currDate;
+    }
+  }
 };
+
+app.convertMessage = function(message, username, roomname) {
+  var output = {
+    username: username,
+    text: message,
+    roomname: app.selectedRoom
+  }
+  return output;
+};
+
+app.clearContainer = function(id) {
+  $(id).empty();
+}
+
+app.filterMessagesByRoomName = function(data) {
+    return data.results.filter(function(msg){
+    return msg.roomname === app.selectedRoom;
+    });
+  }
+//sort results by roomname
+app.allRooms = function(data) {
+  var roomNames = {};
+    data.results.forEach(function(msg){
+      roomNames[msg.roomname] = true;
+  });
+  for (var key in roomNames) {
+    if (app.roomnames.indexOf(key) === -1) {
+      app.roomnames.push(key);
+      $('#roomSelect').append($('<option class="room" id="'+ key + '"/>').text(key));
+    }
+  }
+}
+
+
+
+
